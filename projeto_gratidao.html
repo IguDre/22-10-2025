@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cartão de Agradecimento</title>
+  <style>
+    :root{
+      --bg:#0f172a; --card:#0b1220; --accent:#7c3aed; --glass: rgba(255,255,255,0.04);
+      --text:#e6eef8; --muted:#a9b3c7;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071029 0%, #081228 100%);color:var(--text)}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:28px;width:880px;box-shadow:0 8px 30px rgba(2,6,23,0.6);}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+
+    .controls{display:flex;gap:12px}
+    button{background:var(--accent);border:none;color:white;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(124,58,237,0.18)}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text)}
+
+    .popup{
+      position:fixed; width:260px; min-height:80px; background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border-radius:10px;border:1px solid rgba(255,255,255,0.04);backdrop-filter:blur(4px);
+      box-shadow:0 10px 30px rgba(2,6,23,0.6);padding:10px;z-index:900;overflow:hidden;
+      display:flex;flex-direction:column;gap:6px;align-items:flex-start;justify-content:center;
+      transition:transform 220ms ease, opacity 220ms ease;
+    }
+    .popup.hidden{opacity:0;transform:scale(.88)}
+    .popup .title{font-weight:700;font-size:13px}
+    .popup .text{font-size:12px;color:var(--muted)}
+    .popup .close{position:absolute;right:6px;top:6px;background:transparent;border:none;color:var(--muted);cursor:pointer}
+
+    .modal-backdrop{position:fixed;inset:0;background:linear-gradient(0deg, rgba(2,6,23,0.6), rgba(2,6,23,0.6));display:flex;align-items:center;justify-content:center;z-index:1200;}
+    .modal{background:linear-gradient(180deg,#07122a,#061224);width:88%;max-width:720px;border-radius:14px;padding:26px;border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 80px rgba(2,6,23,0.7)}
+    .modal h2{margin:0 0 10px;text-align:center}
+    .modal .message{background:var(--glass);padding:18px;border-radius:10px;text-align:center;line-height:1.5;color:var(--text);}
+    .modal .footer{display:flex;justify-content:center;margin-top:16px}
+    .modal .btn{padding:10px 16px;border-radius:10px;border:none;cursor:pointer}
+
+    footer.note{margin-top:12px;color:var(--muted);font-size:13px;text-align:center}
+
+    @media (max-width:640px){.panel{width:100%;padding:18px}.popup{width:76%}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <p class="lead">Clique em <strong>Iniciar</strong></p>
+      <div class="controls">
+        <button id="startBtn">Iniciar</button>
+        <button class="secondary" id="stopBtn">Parar agora</button>
+        <div style="flex:1"></div>
+        <label style="align-self:center;color:var(--muted)">Quantidade:
+          <input id="countInput" type="number" min="1" max="120" value="30" style="width:70px;margin-left:8px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="popupsRoot"></div>
+  <div id="modalRoot" style="display:none"></div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const countInput = document.getElementById('countInput');
+    const popupsRoot = document.getElementById('popupsRoot');
+    const modalRoot = document.getElementById('modalRoot');
+
+    let running = false;
+    let timers = new Set();
+
+    function random(min, max){return Math.floor(Math.random()*(max-min+1))+min}
+
+    function createPopup(text, delay = 0){
+      const el = document.createElement('div');
+      el.className = 'popup hidden';
+      const width = 260; const height = 100;
+      const x = random(12, Math.max(12, window.innerWidth - width - 12));
+      const y = random(12, Math.max(12, window.innerHeight - height - 12));
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+
+      el.innerHTML = `
+        <button class="close" aria-label="Fechar">✕</button>
+        <div class="title">Mensagem</div>
+        <div class="text">${text}</div>
+      `;
+
+      popupsRoot.appendChild(el);
+
+      setTimeout(()=>{
+        el.classList.remove('hidden');
+      }, 40 + random(0,120));
+
+      const btn = el.querySelector('.close');
+      btn.addEventListener('click', ()=>{
+        hideAndRemove(el);
+      });
+
+      const timeout = setTimeout(()=> hideAndRemove(el), 4500 + random(0,3000));
+      timers.add(timeout);
+
+      function hideAndRemove(node){
+        node.classList.add('hidden');
+        setTimeout(()=>{ try{ node.remove(); }catch(e){} }, 260);
+      }
+
+      return el;
+    }
+
+    function showFinalModal(){
+      modalRoot.innerHTML = '';
+      modalRoot.style.display = 'block';
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true">
+          <h2>Cartão de Agradecimento</h2>
+          <div class="message">
+            <strong>Gostaria de expressar minha mais sincera gratidão pela atenção, pelos conselhos e pelos ensinamentos que me foram dedicados.</strong>
+            <p style="margin-top:10px">Suas orientações e palavras de sabedoria tiveram um impacto muito positivo em meu aprendizado e no meu crescimento pessoal e profissional.
+            Agradeço por cada momento de paciência, pela confiança depositada e por compartilhar seus conhecimentos de forma tão generosa. Suas lições vão muito além do que se aprende nos livros — são inspirações que levarei comigo por toda a vida.</p>
+            <p style="margin-top:10px">Receba meus mais sinceros agradecimentos e votos de sucesso em todos os seus caminhos.<br><em>Com estima e reconhecimento,<br>Igor André</em></p>
+          </div>
+          <div class="footer"><button class="btn" id="closeFinal">Fechar</button></div>
+        </div>
+      `;
+
+      modalRoot.appendChild(backdrop);
+      document.getElementById('closeFinal').addEventListener('click', ()=>{
+        modalRoot.style.display = 'none';
+        backdrop.remove();
+      });
+    }
+
+    function startSpam(){
+      if (running) return;
+      running = true;
+      startBtn.disabled = true;
+      const count = Math.max(1, Math.min(120, parseInt(countInput.value)||30));
+
+      const bursts = Math.ceil(count / 8);
+      let created = 0;
+      for (let b=0;b<bursts;b++){
+        const burstDelay = b * 350;
+        const burstSize = Math.min(8, count - created);
+        for (let i=0;i<burstSize;i++){
+          const delay = burstDelay + i*40 + random(0,200);
+          const t = setTimeout(()=>{
+            createPopup('Obrigado!' + (created+1));
+          }, delay);
+          timers.add(t);
+          created++;
+        }
+      }
+
+      const finalDelay = 1200 + bursts * 500 + random(0,400);
+      const tf = setTimeout(()=>{
+        showFinalModal();
+        running = false;
+        startBtn.disabled = false;
+      }, finalDelay);
+      timers.add(tf);
+    }
+
+    function stopAll(){
+      for(const t of timers) clearTimeout(t);
+      timers.clear();
+
+      document.querySelectorAll('.popup').forEach(el => el.remove());
+
+      modalRoot.style.display = 'none';
+      running = false;
+      startBtn.disabled = false;
+    }
+    startBtn.addEventListener('click', ()=> startSpam());
+    stopBtn.addEventListener('click', ()=> stopAll());
+
+    countInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') startSpam(); });
+
+    window.addEventListener('beforeunload', ()=> stopAll());
+  </script>
+</body>
+</html>
